@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Moneyball 2026 | FM Scout</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  </head>
+  <body>
+    <div id="app">
+      <aside class="sidebar">
+        <div class="brand">
+          <i class="fa-regular fa-futbol" style="color: var(--primary-color);"></i> Moneyball<span>26</span>
+        </div>
+        <nav style="display: flex; flex-direction: column; gap: 0.5rem;">
+          <a href="#" data-view="dashboard" class="btn btn-outline active" style="justify-content: flex-start; border: none; padding-left: 0.5rem;"><i class="fa-solid fa-chart-pie" style="width: 20px;"></i> Dashboard</a>
+          <a href="#" data-view="upload" class="btn btn-outline" style="justify-content: flex-start; border: none; padding-left: 0.5rem;"><i class="fa-solid fa-file-import" style="width: 20px;"></i> Importar Dados</a>
+          <a href="#" data-view="settings" class="btn btn-outline" style="justify-content: flex-start; border: none; padding-left: 0.5rem;"><i class="fa-solid fa-gear" style="width: 20px;"></i> Configurações</a>
+        </nav>
+      </aside>
+      
+      <main class="main-content">
+        <header style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+          <div>
+            <h1 style="margin-bottom: 0.25rem;">Scout Avançado</h1>
+            <p style="color: var(--text-secondary); font-size: 0.9rem;">Analise exportações do Football Manager 2026</p>
+          </div>
+          <button class="btn btn-primary" id="btn-new-import">Nova Importação</button>
+        </header>
+
+        <section id="view-container">
+          <!-- Views will be injected here by TS -->
+        </section>
+      </main>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
