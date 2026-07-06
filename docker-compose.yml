@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  moneyball-26:
+    build: .
+    container_name: moneyball-26
+    ports:
+      - "3000:3000"
+    volumes:
+      - moneyball_data:/app/server/uploads
+    environment:
+      - NODE_ENV=production
+    restart: unless-stopped
+
+volumes:
+  moneyball_data:
+    name: moneyball_data

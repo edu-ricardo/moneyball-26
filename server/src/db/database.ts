@@ -2,7 +2,10 @@ import sqlite3 from 'sqlite3';
 import path from 'path';
 
 // Use a physical database file
-const dbPath = path.resolve(__dirname, '../../database.sqlite');
+// Put inside 'uploads' so Docker volume can persist it easily
+const dbPath = process.env.NODE_ENV === 'production' 
+  ? path.resolve(__dirname, '../../uploads/database.sqlite')
+  : path.resolve(__dirname, '../../database.sqlite');
 
 export const db = new sqlite3.Database(dbPath, (err) => {
   if (err) {
