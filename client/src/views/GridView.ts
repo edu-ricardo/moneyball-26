@@ -63,6 +63,12 @@ declare global {
     togglePlayerSelection: (e: Event, index: number) => void;
     openComparisonDrawer: () => void;
     updateComparisonRadarAttributes: () => void;
+    filterConfigColumns: (q: string) => void;
+    toggleAllColumns: (show: boolean) => void;
+    saveCurrentView: () => void;
+    loadSavedView: () => void;
+    deleteSavedView: () => void;
+    refreshSavedViewsList: () => void;
   }
 }
 
@@ -611,7 +617,14 @@ export async function renderGridView(container: HTMLElement, importId: number, i
       const operators = ['+', '-', '*', '/', '(', ')'];
       
       const renderColumnsList = () => {
-        return orderedColumns.map((attr, index) => `
+        const q = ((window as any)._configSearchQuery || '').toLowerCase();
+        return orderedColumns
+          .filter(attr => {
+            if (!q) return true;
+            const alias = columnAliases[attr] || '';
+            return attr.toLowerCase().includes(q) || alias.toLowerCase().includes(q);
+          })
+          .map((attr, index) => `
           <div draggable="true"
                ondragstart="window.handleColDragStart(event, '${attr}')"
                ondragover="window.handleColDragOver(event)"
@@ -650,9 +663,30 @@ export async function renderGridView(container: HTMLElement, importId: number, i
           
           <div style="padding: 1.5rem; overflow-y: auto; display: flex; flex-direction: column; gap: 2rem;">
             
+            <!-- Saved Views Section -->
+            <div style="background: rgba(255,255,255,0.02); padding: 1rem; border-radius: 8px; border: 1px solid var(--border-color);">
+              <h3 style="margin-bottom: 0.5rem; font-size: 1rem;">Visualizações Salvas</h3>
+              <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 1rem;">Salve a seleção de colunas atual para recuperar rapidamente depois.</p>
+              <div style="display: flex; gap: 0.5rem; align-items: center;">
+                <select id="saved-views-select" style="flex-grow: 1; background: var(--bg-color); border: 1px solid var(--border-color); color: var(--text-primary); padding: 0.5rem; border-radius: 4px;">
+                  <option value="">Selecione uma visualização...</option>
+                </select>
+                <button class="btn btn-outline" onclick="window.loadSavedView()">Carregar</button>
+                <button class="btn btn-outline" onclick="window.saveCurrentView()">Salvar Atual</button>
+                <button class="btn btn-outline" style="color: #ef4444; border-color: #ef4444;" onclick="window.deleteSavedView()">Excluir</button>
+              </div>
+            </div>
+
             <!-- Visible Columns Section -->
             <div>
-              <h3 style="margin-bottom: 1rem;">Gerenciar Colunas da Tabela</h3>
+              <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 1rem;">
+                <h3 style="margin: 0;">Gerenciar Colunas da Tabela</h3>
+                <div style="display: flex; gap: 0.5rem;">
+                  <input type="text" placeholder="Buscar campo..." oninput="window.filterConfigColumns(this.value)" style="background: var(--bg-color); color: var(--text-primary); border: 1px solid var(--border-color); padding: 0.4rem 0.75rem; border-radius: 4px; font-size: 0.8rem;">
+                  <button class="btn btn-outline" style="padding: 0.4rem 0.75rem; font-size: 0.8rem;" onclick="window.toggleAllColumns(true)">Marcar Todos</button>
+                  <button class="btn btn-outline" style="padding: 0.4rem 0.75rem; font-size: 0.8rem;" onclick="window.toggleAllColumns(false)">Desmarcar Todos</button>
+                </div>
+              </div>
               <div id="view-config-columns-list" style="display: flex; flex-direction: column; gap: 0.5rem; max-height: 300px; overflow-y: auto; padding-right: 0.5rem;">
                 ${renderColumnsList()}
               </div>
@@ -721,6 +755,9 @@ export async function renderGridView(container: HTMLElement, importId: number, i
       
       // Store render logic globally so handlers can refresh the list
       (window as any)._renderViewConfigList = renderColumnsList;
+      
+      // Populate saved views dropdown
+      setTimeout(() => window.refreshSavedViewsList(), 50);
     };
 
     window.closeViewConfigModal = () => {
@@ -1173,6 +1210,122 @@ export async function renderGridView(container: HTMLElement, importId: number, i
         window.updateComparisonRadarAttributes();
       } else {
         window.updateRadarAttributes();
+      }
+    };
+
+    window.toggleAllColumns = (show: boolean) => {
+      if (show) {
+        hiddenColumns = [];
+      } else {
+        hiddenColumns = [...globalColumns];
+      }
+      renderGridView(container, importId, true);
+      const listContainer = document.getElementById('view-config-columns-list');
+      if (listContainer && (window as any)._renderViewConfigList) {
+        listContainer.innerHTML = (window as any)._renderViewConfigList();
+      }
+    };
+
+    window.filterConfigColumns = (q: string) => {
+      (window as any)._configSearchQuery = q;
+      const listContainer = document.getElementById('view-config-columns-list');
+      if (listContainer && (window as any)._renderViewConfigList) {
+        listContainer.innerHTML = (window as any)._renderViewConfigList();
+      }
+    };
+
+    window.refreshSavedViewsList = () => {
+      const select = document.getElementById('saved-views-select') as HTMLSelectElement;
+      if (!select) return;
+      
+      let saved = {};
+      try {
+        saved = JSON.parse(localStorage.getItem(`moneyball_views_${importId}`) || '{}');
+      } catch(e) {}
+      
+      select.innerHTML = '<option value="">Selecione uma visualização...</option>';
+      for (const name in saved) {
+        const opt = document.createElement('option');
+        opt.value = name;
+        opt.innerText = name;
+        select.appendChild(opt);
+      }
+    };
+
+    window.saveCurrentView = () => {
+      import('../utils/modal').then(({ showInputModal }) => {
+        showInputModal('Salvar Visualização', 'Digite o nome para esta visualização de colunas:', 'Ex: Visão Atacantes').then(name => {
+          if (!name) return;
+          let saved: any = {};
+          try {
+            saved = JSON.parse(localStorage.getItem(`moneyball_views_${importId}`) || '{}');
+          } catch(e) {}
+          
+          saved[name] = {
+            orderedColumns,
+            hiddenColumns,
+            columnAliases,
+            columnFormats
+          };
+          localStorage.setItem(`moneyball_views_${importId}`, JSON.stringify(saved));
+          window.refreshSavedViewsList();
+          
+          const select = document.getElementById('saved-views-select') as HTMLSelectElement;
+          if (select) select.value = name;
+          import('../utils/toast').then(({ showToast }) => showToast('Visualização salva!', 'success'));
+        });
+      });
+    };
+
+    window.loadSavedView = () => {
+      const select = document.getElementById('saved-views-select') as HTMLSelectElement;
+      const name = select?.value;
+      if (!name) return;
+      
+      let saved: any = {};
+      try {
+        saved = JSON.parse(localStorage.getItem(`moneyball_views_${importId}`) || '{}');
+      } catch(e) {}
+      
+      const view = saved[name];
+      if (!view) return;
+      
+      if (view.orderedColumns) orderedColumns = view.orderedColumns;
+      if (view.hiddenColumns) hiddenColumns = view.hiddenColumns;
+      if (view.columnAliases) columnAliases = view.columnAliases;
+      if (view.columnFormats) columnFormats = view.columnFormats;
+      
+      // Save globally
+      localStorage.setItem(`grid_config_${importId}`, JSON.stringify({
+        orderedColumns, hiddenColumns, columnAliases, columnFormats
+      }));
+      
+      // Re-render
+      renderGridView(container, importId, true);
+      
+      const listContainer = document.getElementById('view-config-columns-list');
+      if (listContainer && (window as any)._renderViewConfigList) {
+        listContainer.innerHTML = (window as any)._renderViewConfigList();
+      }
+      import('../utils/toast').then(({ showToast }) => showToast('Visualização carregada!', 'success'));
+    };
+
+    window.deleteSavedView = () => {
+      const select = document.getElementById('saved-views-select') as HTMLSelectElement;
+      const name = select?.value;
+      if (!name) return;
+      
+      let saved: any = {};
+      try {
+        saved = JSON.parse(localStorage.getItem(`moneyball_views_${importId}`) || '{}');
+      } catch(e) {}
+      
+      if (saved[name]) {
+        delete saved[name];
+        localStorage.setItem(`moneyball_views_${importId}`, JSON.stringify(saved));
+        window.refreshSavedViewsList();
+        select.value = '';
+        import('../utils/toast').then(({ showToast }) => showToast('Visualização excluída.', 'success'));
       }
     };
 
