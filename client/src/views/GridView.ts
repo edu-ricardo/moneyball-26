@@ -83,7 +83,11 @@ export async function renderGridView(container: HTMLElement, importId: number, i
     currentSortBy = 'id';
     currentSortOrder = 'ASC';
     scatterMode = 'global';
-    currentFilters = [];
+    try {
+      currentFilters = JSON.parse(localStorage.getItem('saved_filters_' + importId) || '[]');
+    } catch(e) {
+      currentFilters = [];
+    }
     globalColumns = [];
     container.innerHTML = `<h2 style="color: var(--primary-color);">Analisando Base #${importId}</h2><p>Carregando dados...</p>`;
   } else {
@@ -358,6 +362,7 @@ export async function renderGridView(container: HTMLElement, importId: number, i
 
     window.removeFilter = (index: number) => {
       currentFilters.splice(index, 1);
+      localStorage.setItem('saved_filters_' + importId, JSON.stringify(currentFilters));
       renderGridView(container, importId, true);
     };
 
@@ -374,6 +379,7 @@ export async function renderGridView(container: HTMLElement, importId: number, i
         }
       });
       currentFilters = newFilters;
+      localStorage.setItem('saved_filters_' + id, JSON.stringify(currentFilters));
       currentPage = 1; // Reset to page 1 on new filters
       renderGridView(container, id, true);
     };
