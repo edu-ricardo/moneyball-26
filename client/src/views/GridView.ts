@@ -975,42 +975,88 @@ export async function renderGridView(container: HTMLElement, importId: number, i
 
       drawerContainer.innerHTML = `
         <div class="drawer-overlay" id="drawer-overlay" onclick="window.closePlayerDrawer()"></div>
-        <div class="drawer" id="player-drawer">
+        <div class="drawer" id="player-drawer" style="max-width: 90vw; width: 1200px;">
           <div style="padding: 1.5rem; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
             <h2 style="color: var(--primary-color); margin: 0;">Comparação de Jogadores</h2>
             <button onclick="window.closePlayerDrawer()" style="background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 1.5rem;">&times;</button>
           </div>
           
-          <div style="padding: 1.5rem; flex-grow: 1;">
-            <p style="color: var(--text-secondary); margin-bottom: 1rem;">${names}</p>
+          <div style="padding: 1.5rem; flex-grow: 1; display: flex; gap: 2rem; flex-wrap: wrap;">
             
-            <div class="card" style="margin-bottom: 1rem;">
-              <h3 style="margin-bottom: 1rem;">Radar Comparativo</h3>
-              <div id="chart-radar" style="width: 100%; height: 350px;"></div>
+            <div style="flex: 2; min-width: 300px; max-height: calc(100vh - 120px); overflow-y: auto;">
+              <h3 style="margin-bottom: 1rem;">Atributos Visíveis</h3>
+              <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.85rem;">
+                <thead>
+                  <tr style="border-bottom: 2px solid var(--border-color);">
+                    <th style="padding: 0.5rem; position: sticky; top: 0; background: var(--surface-color); z-index: 10;">Atributo</th>
+                    ${selectedPlayersData.map(p => `
+                      <th style="padding: 0.5rem; position: sticky; top: 0; background: var(--surface-color); z-index: 10; text-align: center;">${p.Nome || p.Name || 'Jogador'}</th>
+                    `).join('')}
+                  </tr>
+                </thead>
+                <tbody>
+                  ${displayColumns.map(col => {
+                    const values = selectedPlayersData.map(p => {
+                      const raw = String(p[col]).replace(/[^0-9.-]/g, '');
+                      return parseFloat(raw);
+                    });
+                    
+                    const validVals = values.filter(v => !isNaN(v));
+                    const maxVal = validVals.length > 0 ? Math.max(...validVals) : null;
+                    const minVal = validVals.length > 0 ? Math.min(...validVals) : null;
+                    
+                    return `
+                      <tr style="border-bottom: 1px solid rgba(255,255,255,0.05); transition: background-color 0.2s;" onmouseover="this.style.backgroundColor='rgba(255,255,255,0.05)'" onmouseout="this.style.backgroundColor='transparent'">
+                        <td style="padding: 0.5rem; font-weight: bold; color: var(--text-secondary);">${columnAliases[col] || col}</td>
+                        ${selectedPlayersData.map((p, i) => {
+                          const valStr = formatValue(col, p[col]);
+                          const valNum = values[i];
+                          let colorStyle = '';
+                          if (!isNaN(valNum) && maxVal !== null && minVal !== null && maxVal !== minVal) {
+                            if (valNum === maxVal) colorStyle = 'color: #22c55e; font-weight: bold;'; // Green
+                            else if (valNum === minVal) colorStyle = 'color: #ef4444;'; // Red
+                          }
+                          return `<td style="padding: 0.5rem; text-align: center; ${colorStyle}">${valStr}</td>`;
+                        }).join('')}
+                      </tr>
+                    `;
+                  }).join('')}
+                </tbody>
+              </table>
             </div>
-            
-            <div style="margin-top: 1rem;">
-              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-                <p style="color: var(--text-secondary); font-size: 0.9rem; margin: 0;">Escolha as Métricas para o Radar:</p>
-                <button onclick="window.saveRadarGabarito()" class="btn btn-outline" style="padding: 0.2rem 0.5rem; font-size: 0.7rem;"><i class="fa-solid fa-floppy-disk"></i> Salvar Gabarito</button>
+
+            <div style="flex: 1; min-width: 400px; display: flex; flex-direction: column;">
+              <p style="color: var(--text-secondary); margin-bottom: 1rem; text-align: center;">${names}</p>
+              
+              <div class="card" style="margin-bottom: 1rem;">
+                <h3 style="margin-bottom: 1rem;">Radar Comparativo</h3>
+                <div id="chart-radar" style="width: 100%; height: 350px;"></div>
               </div>
               
-              <div style="display: flex; gap: 0.5rem; margin-bottom: 0.5rem;">
-                <input type="text" id="radar-search" onkeyup="window.filterRadarMetrics(this.value)" placeholder="Buscar métrica..." style="background: var(--bg-color); color: var(--text-primary); border: 1px solid var(--border-color); padding: 0.5rem; border-radius: 4px; flex-grow: 1; font-size: 0.8rem;">
-                <select id="radar-gabaritos" onchange="window.loadRadarGabarito(this.value)" style="background: var(--bg-color); color: var(--text-primary); border: 1px solid var(--border-color); padding: 0.5rem; border-radius: 4px; font-size: 0.8rem; width: 120px;">
-                  <option value="">Carregar...</option>
-                </select>
-              </div>
-              
-              <div id="radar-metrics-list" style="display: flex; flex-wrap: wrap; gap: 0.5rem; max-height: 200px; overflow-y: auto; padding-right: 0.5rem;">
-                ${numericAttributes.map(attr => `
-                  <label class="radar-metric-label" style="display: flex; align-items: center; gap: 0.25rem; background: rgba(255,255,255,0.05); padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.8rem; cursor: pointer;">
-                    <input type="checkbox" class="radar-metric-cb" value="${attr}" ${defaultSelected.includes(attr) ? 'checked' : ''} onchange="window.updateComparisonRadarAttributes()">
-                    <span class="metric-name" title="${attr}">${columnAliases[attr] || attr}</span>
-                  </label>
-                `).join('')}
+              <div style="margin-top: 1rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                  <p style="color: var(--text-secondary); font-size: 0.9rem; margin: 0;">Escolha as Métricas para o Radar:</p>
+                  <button onclick="window.saveRadarGabarito()" class="btn btn-outline" style="padding: 0.2rem 0.5rem; font-size: 0.7rem;"><i class="fa-solid fa-floppy-disk"></i> Salvar Gabarito</button>
+                </div>
+                
+                <div style="display: flex; gap: 0.5rem; margin-bottom: 0.5rem;">
+                  <input type="text" id="radar-search" onkeyup="window.filterRadarMetrics(this.value)" placeholder="Buscar métrica..." style="background: var(--bg-color); color: var(--text-primary); border: 1px solid var(--border-color); padding: 0.5rem; border-radius: 4px; flex-grow: 1; font-size: 0.8rem;">
+                  <select id="radar-gabaritos" onchange="window.loadRadarGabarito(this.value)" style="background: var(--bg-color); color: var(--text-primary); border: 1px solid var(--border-color); padding: 0.5rem; border-radius: 4px; font-size: 0.8rem; width: 120px;">
+                    <option value="">Carregar...</option>
+                  </select>
+                </div>
+                
+                <div id="radar-metrics-list" style="display: flex; flex-wrap: wrap; gap: 0.5rem; max-height: 200px; overflow-y: auto; padding-right: 0.5rem;">
+                  ${numericAttributes.map(attr => `
+                    <label class="radar-metric-label" style="display: flex; align-items: center; gap: 0.25rem; background: rgba(255,255,255,0.05); padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.8rem; cursor: pointer;">
+                      <input type="checkbox" class="radar-metric-cb" value="${attr}" ${defaultSelected.includes(attr) ? 'checked' : ''} onchange="window.updateComparisonRadarAttributes()">
+                      <span class="metric-name" title="${attr}">${columnAliases[attr] || attr}</span>
+                    </label>
+                  `).join('')}
+                </div>
               </div>
             </div>
+            
           </div>
         </div>
       `;
