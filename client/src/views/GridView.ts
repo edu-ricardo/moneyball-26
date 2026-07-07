@@ -239,7 +239,7 @@ export async function renderGridView(container: HTMLElement, importId: number, i
           ${currentFilters.map((f, i) => `
             <div style="display: flex; gap: 0.5rem; align-items: center;">
               <select class="filter-col" style="background: var(--bg-color); color: var(--text-primary); border: 1px solid var(--border-color); padding: 0.5rem; border-radius: 4px; flex-grow: 1;">
-                ${columns.map(c => `<option value="${c}" ${f.col === c ? 'selected' : ''}>${c}</option>`).join('')}
+                ${columns.map(c => `<option value="${c}" ${f.col === c ? 'selected' : ''}>${columnAliases[c] || c}</option>`).join('')}
               </select>
               <select class="filter-op" style="background: var(--bg-color); color: var(--text-primary); border: 1px solid var(--border-color); padding: 0.5rem; border-radius: 4px; width: 100px;">
                 <option value="=" ${f.op === '=' ? 'selected' : ''}>Igual</option>
@@ -291,13 +291,13 @@ export async function renderGridView(container: HTMLElement, importId: number, i
               <div>
                 Eixo X: 
                 <select id="scatter-axis-x" onchange="window.updateScatterAxes()" style="background: var(--bg-color); color: var(--text-primary); border: 1px solid var(--border-color); padding: 0.25rem; border-radius: 4px;">
-                  ${columns.map(col => `<option value="${col}" ${col === defaultXCol ? 'selected' : ''}>${col}</option>`).join('')}
+                  ${columns.map(col => `<option value="${col}" ${col === defaultXCol ? 'selected' : ''}>${columnAliases[col] || col}</option>`).join('')}
                 </select>
               </div>
               <div>
                 Eixo Y: 
                 <select id="scatter-axis-y" onchange="window.updateScatterAxes()" style="background: var(--bg-color); color: var(--text-primary); border: 1px solid var(--border-color); padding: 0.25rem; border-radius: 4px;">
-                  ${columns.map(col => `<option value="${col}" ${col === defaultYCol ? 'selected' : ''}>${col}</option>`).join('')}
+                  ${columns.map(col => `<option value="${col}" ${col === defaultYCol ? 'selected' : ''}>${columnAliases[col] || col}</option>`).join('')}
                 </select>
               </div>
               <span id="scatter-label" style="margin-left: 1rem;">Mostrando: Global (Amostra 2000)</span>
@@ -408,7 +408,9 @@ export async function renderGridView(container: HTMLElement, importId: number, i
         backgroundColor: 'transparent',
         tooltip: {
           formatter: function (params: any) {
-            return `${params.value[2]}<br/>${xCol}: ${params.value[0]}<br/>${yCol}: ${params.value[1]}`;
+            const xLabel = columnAliases[xCol] || xCol;
+            const yLabel = columnAliases[yCol] || yCol;
+            return `${params.value[2]}<br/>${xLabel}: ${params.value[0]}<br/>${yLabel}: ${params.value[1]}`;
           }
         },
         xAxis: { 
@@ -594,7 +596,7 @@ export async function renderGridView(container: HTMLElement, importId: number, i
         const vals = window.globalScatterData.map(p => parseFloat(String(p[attr]).replace(/[^0-9.-]/g, '')) || 0);
         let maxVal = Math.max(...vals);
         if (maxVal <= 0) maxVal = 10; // Fallback
-        return { name: attr, max: maxVal * 1.05 }; // 5% buffer
+        return { name: columnAliases[attr] || attr, max: maxVal * 1.05 }; // 5% buffer
       });
 
       const dataValues = selectedAttributes.map(attr => parseFloat(String(player[attr]).replace(/[^0-9.-]/g, '')) || 0);
@@ -688,7 +690,7 @@ export async function renderGridView(container: HTMLElement, importId: number, i
                 ${numericAttributes.map(attr => `
                   <label class="radar-metric-label" style="display: flex; align-items: center; gap: 0.25rem; background: rgba(255,255,255,0.05); padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.8rem; cursor: pointer;">
                     <input type="checkbox" class="radar-metric-cb" value="${attr}" ${defaultSelected.includes(attr) ? 'checked' : ''} onchange="window.updateRadarAttributes()">
-                    <span class="metric-name">${attr}</span>
+                    <span class="metric-name" title="${attr}">${columnAliases[attr] || attr}</span>
                   </label>
                 `).join('')}
               </div>
@@ -988,7 +990,7 @@ export async function renderGridView(container: HTMLElement, importId: number, i
                 ${numericAttributes.map(attr => `
                   <label class="radar-metric-label" style="display: flex; align-items: center; gap: 0.25rem; background: rgba(255,255,255,0.05); padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.8rem; cursor: pointer;">
                     <input type="checkbox" class="radar-metric-cb" value="${attr}" ${defaultSelected.includes(attr) ? 'checked' : ''} onchange="window.updateComparisonRadarAttributes()">
-                    <span class="metric-name">${attr}</span>
+                    <span class="metric-name" title="${attr}">${columnAliases[attr] || attr}</span>
                   </label>
                 `).join('')}
               </div>
@@ -1032,7 +1034,7 @@ export async function renderGridView(container: HTMLElement, importId: number, i
         const vals = window.globalScatterData.map(p => parseFloat(String(p[attr]).replace(/[^0-9.-]/g, '')) || 0);
         let maxVal = Math.max(...vals);
         if (maxVal <= 0) maxVal = 10;
-        return { name: attr, max: maxVal * 1.05 };
+        return { name: columnAliases[attr] || attr, max: maxVal * 1.05 };
       });
 
       const seriesData = selectedPlayersData.map((player, idx) => {
