@@ -69,6 +69,10 @@ declare global {
     loadSavedView: () => void;
     deleteSavedView: () => void;
     refreshSavedViewsList: () => void;
+    refreshScatterConfigsDropdown: () => void;
+    saveScatterConfig: () => void;
+    loadScatterConfig: () => void;
+    deleteScatterConfig: () => void;
   }
 }
 
@@ -255,9 +259,10 @@ export async function renderGridView(container: HTMLElement, importId: number, i
     `;
 
     if (!isReRender) {
-      // Find defaults for initial HTML state
-      let defaultXCol = columns.find(c => c.toLowerCase().includes('idade') || c.toLowerCase().includes('age')) || columns[2] || columns[0];
-      let defaultYCol = columns.find(c => c.toLowerCase().includes('valor') || c.toLowerCase().includes('value')) || columns[3] || columns[1];
+      let savedX = localStorage.getItem(`scatter_last_x_${importId}`);
+      let savedY = localStorage.getItem(`scatter_last_y_${importId}`);
+      let defaultXCol = (savedX && columns.includes(savedX)) ? savedX : (columns.find(c => c.toLowerCase().includes('idade') || c.toLowerCase().includes('age')) || columns[2] || columns[0]);
+      let defaultYCol = (savedY && columns.includes(savedY)) ? savedY : (columns.find(c => c.toLowerCase().includes('valor') || c.toLowerCase().includes('value')) || columns[3] || columns[1]);
 
       container.innerHTML = `
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
@@ -270,8 +275,18 @@ export async function renderGridView(container: HTMLElement, importId: number, i
         </div>
         
         <div class="card" style="margin-bottom: 1.5rem; background-color: var(--surface-color);">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 1rem;">
-            <h3 style="color: var(--text-primary); margin: 0;">Scatter Plot</h3>
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem; flex-wrap: wrap; gap: 1rem;">
+            <div>
+              <h3 style="color: var(--text-primary); margin: 0 0 0.5rem 0;">Scatter Plot</h3>
+              <div style="display: flex; gap: 0.5rem; align-items: center; font-size: 0.8rem;">
+                <select id="scatter-configs-select" style="background: var(--bg-color); color: var(--text-primary); border: 1px solid var(--border-color); padding: 0.25rem; border-radius: 4px; max-width: 150px;">
+                  <option value="">Configurações Salvas...</option>
+                </select>
+                <button class="btn btn-outline" style="padding: 0.2rem 0.5rem; font-size: 0.7rem;" onclick="window.loadScatterConfig()">Carregar</button>
+                <button class="btn btn-outline" style="padding: 0.2rem 0.5rem; font-size: 0.7rem;" onclick="window.saveScatterConfig()">Salvar Atual</button>
+                <button class="btn btn-outline" style="padding: 0.2rem 0.5rem; font-size: 0.7rem; color: #ef4444; border-color: #ef4444;" onclick="window.deleteScatterConfig()">Excluir</button>
+              </div>
+            </div>
             <div style="display: flex; align-items: center; gap: 1rem; font-size: 0.9rem; color: var(--text-secondary);">
               <div>
                 Eixo X: 
@@ -365,8 +380,10 @@ export async function renderGridView(container: HTMLElement, importId: number, i
     };
 
     // Initialize ECharts Scatter Plot and setup toggle logic
-    let defaultXCol = columns.find(c => c.toLowerCase().includes('idade') || c.toLowerCase().includes('age')) || columns[2] || columns[0];
-    let defaultYCol = columns.find(c => c.toLowerCase().includes('valor') || c.toLowerCase().includes('value')) || columns[3] || columns[1];
+    let savedXInit = localStorage.getItem(`scatter_last_x_${importId}`);
+    let savedYInit = localStorage.getItem(`scatter_last_y_${importId}`);
+    let defaultXCol = (savedXInit && columns.includes(savedXInit)) ? savedXInit : (columns.find(c => c.toLowerCase().includes('idade') || c.toLowerCase().includes('age')) || columns[2] || columns[0]);
+    let defaultYCol = (savedYInit && columns.includes(savedYInit)) ? savedYInit : (columns.find(c => c.toLowerCase().includes('valor') || c.toLowerCase().includes('value')) || columns[3] || columns[1]);
 
     const updateChart = () => {
       if (!window.myChart) return;
@@ -419,7 +436,90 @@ export async function renderGridView(container: HTMLElement, importId: number, i
     };
 
     window.updateScatterAxes = () => {
+      const selectX = document.getElementById('scatter-axis-x') as HTMLSelectElement;
+      const selectY = document.getElementById('scatter-axis-y') as HTMLSelectElement;
+      if (selectX) localStorage.setItem(`scatter_last_x_${importId}`, selectX.value);
+      if (selectY) localStorage.setItem(`scatter_last_y_${importId}`, selectY.value);
       if (typeof updateChart === 'function') updateChart();
+    };
+
+    window.refreshScatterConfigsDropdown = () => {
+      const select = document.getElementById('scatter-configs-select') as HTMLSelectElement;
+      if (!select) return;
+      let saved = {};
+      try {
+        saved = JSON.parse(localStorage.getItem(`scatter_configs_${importId}`) || '{}');
+      } catch(e) {}
+      select.innerHTML = '<option value="">Configurações Salvas...</option>';
+      for (const name in saved) {
+        const opt = document.createElement('option');
+        opt.value = name;
+        opt.innerText = name;
+        select.appendChild(opt);
+      }
+    };
+
+    window.saveScatterConfig = () => {
+      import('../utils/modal').then(({ showInputModal }) => {
+        showInputModal('Salvar Configuração', 'Digite o nome para esta configuração do gráfico:', 'Ex: Idade x Valor').then(name => {
+          if (!name) return;
+          const selectX = document.getElementById('scatter-axis-x') as HTMLSelectElement;
+          const selectY = document.getElementById('scatter-axis-y') as HTMLSelectElement;
+          if (!selectX || !selectY) return;
+          
+          let saved: any = {};
+          try {
+            saved = JSON.parse(localStorage.getItem(`scatter_configs_${importId}`) || '{}');
+          } catch(e) {}
+          
+          saved[name] = { x: selectX.value, y: selectY.value };
+          localStorage.setItem(`scatter_configs_${importId}`, JSON.stringify(saved));
+          window.refreshScatterConfigsDropdown();
+          
+          const select = document.getElementById('scatter-configs-select') as HTMLSelectElement;
+          if (select) select.value = name;
+          import('../utils/toast').then(({ showToast }) => showToast('Configuração salva!', 'success'));
+        });
+      });
+    };
+
+    window.loadScatterConfig = () => {
+      const select = document.getElementById('scatter-configs-select') as HTMLSelectElement;
+      const name = select?.value;
+      if (!name) return;
+      let saved: any = {};
+      try {
+        saved = JSON.parse(localStorage.getItem(`scatter_configs_${importId}`) || '{}');
+      } catch(e) {}
+      
+      const conf = saved[name];
+      if (!conf) return;
+      
+      const selectX = document.getElementById('scatter-axis-x') as HTMLSelectElement;
+      const selectY = document.getElementById('scatter-axis-y') as HTMLSelectElement;
+      if (selectX) selectX.value = conf.x;
+      if (selectY) selectY.value = conf.y;
+      
+      window.updateScatterAxes();
+      import('../utils/toast').then(({ showToast }) => showToast('Configuração carregada!', 'success'));
+    };
+
+    window.deleteScatterConfig = () => {
+      const select = document.getElementById('scatter-configs-select') as HTMLSelectElement;
+      const name = select?.value;
+      if (!name) return;
+      let saved: any = {};
+      try {
+        saved = JSON.parse(localStorage.getItem(`scatter_configs_${importId}`) || '{}');
+      } catch(e) {}
+      
+      if (saved[name]) {
+        delete saved[name];
+        localStorage.setItem(`scatter_configs_${importId}`, JSON.stringify(saved));
+        window.refreshScatterConfigsDropdown();
+        select.value = '';
+        import('../utils/toast').then(({ showToast }) => showToast('Configuração excluída.', 'success'));
+      }
     };
 
     if (!isReRender) {
@@ -435,6 +535,9 @@ export async function renderGridView(container: HTMLElement, importId: number, i
     // Always update paginated data cache and update chart to reflect new page if in 'page' mode
     window.lastPaginatedData = players;
     updateChart();
+    if (typeof window.refreshScatterConfigsDropdown === 'function') {
+      window.refreshScatterConfigsDropdown();
+    }
     
     // Add Drawer DOM if it doesn't exist
     if (!document.getElementById('drawer-container')) {
