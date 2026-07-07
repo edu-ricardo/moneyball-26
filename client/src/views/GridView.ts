@@ -169,6 +169,16 @@ export async function renderGridView(container: HTMLElement, importId: number, i
 
       tableHtml = `
         <div class="card" style="margin-top: 1.5rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border-color);">
+            <div>
+              <span style="color: var(--text-secondary);">Página ${pagination.page} de ${pagination.totalPages}</span>
+              <span style="color: var(--text-secondary); margin-left: 1rem;">(Total: ${pagination.total} jogadores)</span>
+            </div>
+            <div style="display: flex; gap: 0.5rem;">
+              <button class="btn btn-outline" onclick="window.changePage(${currentPage - 1}, ${importId})" ${currentPage <= 1 ? 'disabled style="opacity:0.5;cursor:not-allowed;"' : ''}>Anterior</button>
+              <button class="btn btn-primary" onclick="window.changePage(${currentPage + 1}, ${importId})" ${currentPage >= pagination.totalPages ? 'disabled style="opacity:0.5;cursor:not-allowed;"' : ''}>Próxima</button>
+            </div>
+          </div>
           <div style="overflow-x: auto; width: 100%; padding-bottom: 0.5rem;" id="table-wrapper">
             <table style="width: 100%; border-collapse: collapse; text-align: left;">
               <thead>
